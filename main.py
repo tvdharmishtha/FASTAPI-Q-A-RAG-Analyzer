@@ -1,6 +1,7 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi import Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+import os
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -41,9 +42,16 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 app.include_router(upload_router, prefix="/api", tags=["upload"])
 app.include_router(query_router, prefix="/api", tags=["query"])
 
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 @app.get("/")
 async def root():
+    index_path = os.path.join("static", "index.html")
+    if os.path.exists(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
     return {"message": "Document Q&A RAG System API", "version": settings.version, "docs": "Visit /docs for Swagger UI"}
 
 
@@ -70,7 +78,12 @@ async def ask_question(request: Request):
             sources=[]
         )
 
-    context = "\n\n".join([chunk["content"] for chunk in retrieved_chunks])
+    context_parts = []
+    for chunk in retrieved_chunks:
+        filename = chunk["metadata"].get("filename", "Unknown Document")
+        context_parts.append(f"Document: {filename}\nContent: {chunk['content']}")
+    context = "\n\n".join(context_parts)
+    
     answer = llm_service.generate_answer(ask_request.question, context)
 
     if not answer:
@@ -79,14 +92,18 @@ async def ask_question(request: Request):
             sources=[]
         )
 
-    sources = [
-        Source(
-            text=chunk["content"],
-            doc_id=chunk["metadata"].get("doc_id", ""),
-            score=chunk["score"]
+    sources = []
+    for chunk in retrieved_chunks:
+        doc_meta_name = chunk["metadata"].get("filename") or chunk["metadata"].get("doc_id", "")
+        # Truncate text to first 100 characters for concise display
+        truncated_text = chunk["content"][:100] + "..." if len(chunk["content"]) > 100 else chunk["content"]
+        sources.append(
+            Source(
+                text=truncated_text,
+                doc_id=doc_meta_name,
+                score=chunk["score"]
+            )
         )
-        for chunk in retrieved_chunks
-    ]
 
     logger.info(f"Processed ask: {ask_request.question}")
 
@@ -101,38 +118,47 @@ async def websocket_ask(websocket: WebSocket):
     await websocket.accept()
     
     try:
-        data = await websocket.receive_text()
-        message = json.loads(data)
-        question = message.get("question", "")
-        doc_ids = message.get("doc_ids")
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            question = message.get("question", "")
+            doc_ids = message.get("doc_ids")
 
-        if not question:
-            await websocket.send_json({"error": "Question is required"})
-            return
+            if not question:
+                await websocket.send_json({"error": "Question is required"})
+                continue
 
-        retrieved_chunks = retriever.retrieve(question, doc_ids=doc_ids)
+            retrieved_chunks = retriever.retrieve(question, doc_ids=doc_ids)
 
-        if not retrieved_chunks:
-            await websocket.send_json({
-                "answer": "I don't know based on the provided documents",
-                "sources": []
-            })
-            return
+            if not retrieved_chunks:
+                await websocket.send_json({
+                    "answer": "I don't know based on the provided documents",
+                    "sources": [],
+                    "done": True
+                })
+                continue
 
-        context = "\n\n".join([chunk["content"] for chunk in retrieved_chunks])
+            context_parts = []
+            for chunk in retrieved_chunks:
+                filename = chunk["metadata"].get("filename", "Unknown Document")
+                context_parts.append(f"Document: {filename}\nContent: {chunk['content']}")
+            context = "\n\n".join(context_parts)
 
-        for chunk_text in llm_service.stream_answer(question, context):
-            await websocket.send_text(json.dumps({"chunk": chunk_text}))
+            for chunk_text in llm_service.stream_answer(question, context):
+                await websocket.send_text(json.dumps({"chunk": chunk_text}))
 
-        sources = [
-            {
-                "text": chunk["content"],
-                "doc_id": chunk["metadata"].get("doc_id", ""),
-                "score": chunk["score"]
-            }
-            for chunk in retrieved_chunks
-        ]
-        await websocket.send_json({"sources": sources, "done": True})
+            sources = []
+            for chunk in retrieved_chunks:
+                doc_meta_name = chunk["metadata"].get("filename") or chunk["metadata"].get("doc_id", "")
+                # Truncate text to first 100 characters for concise display
+                truncated_text = chunk["content"][:100] + "..." if len(chunk["content"]) > 100 else chunk["content"]
+                sources.append({
+                    "text": truncated_text,
+                    "doc_id": doc_meta_name,
+                    "score": chunk["score"]
+                })
+                
+            await websocket.send_json({"sources": sources, "done": True})
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")

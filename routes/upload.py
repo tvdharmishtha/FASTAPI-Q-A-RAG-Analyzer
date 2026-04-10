@@ -59,7 +59,7 @@ async def upload_documents(files: List[UploadFile] = File(...)):
 
             # Chunk the document
             logger.info(f"Chunking text for document {document_id}")
-            chunks = chunker.chunk_text(text, document_id)
+            chunks = chunker.chunk_text(text, document_id, file.filename)
             logger.info(f"Created {len(chunks)} chunks")
 
             # Add chunks to retriever

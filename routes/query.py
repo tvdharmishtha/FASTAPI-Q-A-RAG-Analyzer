@@ -24,20 +24,28 @@ async def query_documents(request: QueryRequest):
                 sources=[]
             )
 
-        context = "\n\n".join([chunk["content"] for chunk in retrieved_chunks])
+        context_parts = []
+        for chunk in retrieved_chunks:
+            filename = chunk["metadata"].get("filename", "Unknown Document")
+            context_parts.append(f"Document: {filename}\nContent: {chunk['content']}")
+        context = "\n\n".join(context_parts)
         answer = llm_service.generate_answer(request.query, context)
 
         if not answer:
             raise HTTPException(status_code=500, detail="Failed to generate answer")
 
-        sources = [
-            Source(
-                text=chunk["content"],
-                doc_id=chunk["metadata"].get("doc_id", ""),
-                score=chunk["score"]
+        sources = []
+        for chunk in retrieved_chunks:
+            doc_meta_name = chunk["metadata"].get("filename") or chunk["metadata"].get("doc_id", "")
+            # Truncate text to first 100 characters for concise display
+            truncated_text = chunk["content"][:100] + "..." if len(chunk["content"]) > 100 else chunk["content"]
+            sources.append(
+                Source(
+                    text=truncated_text,
+                    doc_id=doc_meta_name,
+                    score=chunk["score"]
+                )
             )
-            for chunk in retrieved_chunks
-        ]
 
         logger.info(f"Processed query: {request.query}")
 

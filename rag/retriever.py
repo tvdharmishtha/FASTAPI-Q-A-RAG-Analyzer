@@ -109,7 +109,9 @@ class Retriever:
         with open(self.data_file, 'wb') as f:
             pickle.dump({
                 'chunk_map': self.chunk_map,
-                'doc_id_to_indices': self.doc_id_to_indices
+                'doc_id_to_indices': self.doc_id_to_indices,
+                'uploaded_hashes': self.uploaded_hashes,
+                'hash_to_doc_id': self.hash_to_doc_id
             }, f)
         logger.info("Retriever data saved to disk")
 
