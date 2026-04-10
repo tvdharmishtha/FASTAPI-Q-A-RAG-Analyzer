@@ -197,9 +197,14 @@ document.addEventListener('DOMContentLoaded', () => {
             <svg class="doc-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
             <span class="doc-name"></span>
             <span class="doc-status">${options.pending ? 'Uploading...' : ''}</span>
-            <button type="button" class="remove-doc-btn" title="Remove document" aria-label="Remove ${escapeHTML(filename)}" ${options.pending ? 'disabled' : ''}>
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-            </button>
+            <div class="doc-actions">
+                <button type="button" class="doc-action-btn remove-list-btn" title="Remove from list" aria-label="Remove ${escapeHTML(filename)} from list">
+                    List
+                </button>
+                <button type="button" class="doc-action-btn remove-vector-btn" title="Remove from vector DB" aria-label="Remove ${escapeHTML(filename)} from vector database" ${options.pending ? 'disabled' : ''}>
+                    Vector DB
+                </button>
+            </div>
         `;
         li.querySelector('.doc-name').textContent = filename;
         docList.appendChild(li);
@@ -211,14 +216,17 @@ document.addEventListener('DOMContentLoaded', () => {
         li.dataset.documentId = documentId;
         li.classList.remove('pending');
         li.querySelector('.doc-name').textContent = filename;
-        li.querySelector('.doc-status').textContent = statusText === 'Document already uploaded' ? 'Already uploaded' : '';
+        li.querySelector('.doc-status').textContent = '';
         const checkbox = li.querySelector('.doc-select');
         checkbox.disabled = !documentId;
         checkbox.checked = Boolean(documentId);
         checkbox.setAttribute('aria-label', `Use ${filename} for answers`);
-        const removeButton = li.querySelector('.remove-doc-btn');
-        removeButton.disabled = !documentId;
-        removeButton.setAttribute('aria-label', `Remove ${filename}`);
+        li.querySelector('.doc-status').textContent = '';
+        const listButton = li.querySelector('.remove-list-btn');
+        listButton.setAttribute('aria-label', `Remove ${filename} from list`);
+        const vectorButton = li.querySelector('.remove-vector-btn');
+        vectorButton.disabled = !documentId;
+        vectorButton.setAttribute('aria-label', `Remove ${filename} from vector database`);
     }
 
     function removeDocumentListItem(li) {
@@ -232,7 +240,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     docList.addEventListener('click', async (event) => {
-        const button = event.target.closest('.remove-doc-btn');
+        const listButton = event.target.closest('.remove-list-btn');
+        if (listButton) {
+            const li = listButton.closest('li');
+            removeDocumentListItem(li);
+            return;
+        }
+
+        const button = event.target.closest('.remove-vector-btn');
         if (!button) return;
 
         const li = button.closest('li');
@@ -240,16 +255,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const filename = li?.querySelector('.doc-name')?.textContent || 'this document';
         if (!documentId) return;
 
-        if (!confirm(`Remove "${filename}"?`)) {
+        if (!confirm(`Remove "${filename}" from vector database?`)) {
             return;
         }
 
         button.disabled = true;
         li.classList.add('deleting');
-        li.querySelector('.doc-status').textContent = 'Removing...';
+        li.querySelector('.doc-status').textContent = 'Removing from vector DB...';
 
         try {
-            const response = await fetch(`/api/files/${encodeURIComponent(documentId)}`, {
+            const response = await fetch(`/api/files/${encodeURIComponent(documentId)}/vector`, {
                 method: 'DELETE'
             });
             const result = await response.json();
@@ -258,13 +273,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(result.detail || result.error || 'Delete failed');
             }
 
+            appendSystemMessage(`Removed "${filename}" from vector database.`, 'notice');
             removeDocumentListItem(li);
         } catch (err) {
             console.error('Delete error:', err);
             li.classList.remove('deleting');
-            li.querySelector('.doc-status').textContent = 'Remove failed';
+            li.querySelector('.doc-status').textContent = 'Vector remove failed';
             button.disabled = false;
-            alert(`Could not remove ${filename}: ${err.message}`);
+            appendSystemMessage(`Could not remove "${filename}" from vector database.`, 'error');
         }
     });
 

@@ -1,0 +1,41 @@
+order_id,customer_name,product_name,quantity,unit_price,total_amount,order_date,status
+1001,Acme Retail Group,Wireless Barcode Scanner,4,189.00,756.00,2025-06-01,Shipped
+1002,BrightPath Clinics,Ergonomic Keyboard,12,48.50,582.00,2025-06-01,Pending
+1003,Cedar Finance,USB-C Docking Station,8,134.00,1072.00,2025-06-02,Shipped
+1004,Delta Legal Partners,Noise Cancelling Headset,10,92.00,920.00,2025-06-02,Cancelled
+1005,Evergreen Schools,24-inch Monitor,5,250.00,1250.00,2025-06-03,Shipped
+1006,Fairview Dental,Document Scanner,2,415.00,830.00,2025-06-03,Pending
+1007,Greenfield Logistics,Label Printer,6,210.00,1260.00,2025-06-04,Shipped
+1008,Horizon Media,Conference Webcam,9,76.00,684.00,2025-06-04,Shipped
+1009,Ivory Accounting,Portable Projector,1,620.00,620.00,2025-06-05,Pending
+1010,Juniper Hotels,Guest Check-in Tablet,7,315.00,2205.00,2025-06-05,Cancelled
+1011,Kingsway Foods,Thermal Receipt Printer,11,155.00,1705.00,2025-06-06,Shipped
+1012,Lakeview Pharmacy,Inventory Scanner Battery,20,22.50,450.00,2025-06-06,Shipped
+1013,Metro Builders,Rugged Laptop Case,15,39.00,585.00,2025-06-07,Pending
+1014,Nova Fitness,Access Control Badge,50,6.75,337.50,2025-06-07,Shipped
+1015,Oakstone Insurance,Desktop Document Camera,3,280.00,840.00,2025-06-08,Shipped
+1016,Pioneer Auto Parts,Warehouse Tablet,4,355.00,1420.00,2025-06-08,Pending
+1017,Quantum Labs,Secure USB Drive,25,31.00,775.00,2025-06-09,Shipped
+1018,Riverbend University,Interactive Whiteboard Pen,18,24.00,432.00,2025-06-09,Cancelled
+1019,Summit Travel,Mobile Receipt Scanner,5,198.00,990.00,2025-06-10,Shipped
+1020,Terrace Medical,Privacy Screen Filter,16,44.00,704.00,2025-06-10,Pending
+1021,Union Printworks,High Yield Toner Cartridge,14,88.00,1232.00,2025-06-11,Shipped
+1022,Valley Architects,Large Format Paper Roll,30,18.75,562.50,2025-06-11,Shipped
+1023,Westbrook Library,Book Return Scanner,2,540.00,1080.00,2025-06-12,Pending
+1024,Yorktown Bank,Encrypted External SSD,6,145.00,870.00,2025-06-12,Shipped
+1025,Zenith Consulting,Wireless Presentation Remote,10,36.00,360.00,2025-06-13,Cancelled
+1026,Arbor Manufacturing,Industrial Label Ribbon,40,12.25,490.00,2025-06-13,Shipped
+1027,Beacon Nonprofit,Refurbished Office Laptop,3,485.00,1455.00,2025-06-14,Pending
+1028,Crestview Realty,Smart Door Sensor,22,19.50,429.00,2025-06-14,Shipped
+1029,Daybreak Studios,Color Calibration Tool,2,325.00,650.00,2025-06-15,Shipped
+1030,Elm Street Cafe,Point-of-Sale Stand,4,118.00,472.00,2025-06-15,Cancelled
+1031,Falcon Security,IP Camera Mount,28,14.00,392.00,2025-06-16,Shipped
+1032,Granite Energy,Surge Protector Strip,35,21.00,735.00,2025-06-16,Pending
+1033,Harbor Events,Portable Speakerphone,6,129.00,774.00,2025-06-17,Shipped
+1034,Inspire Pediatrics,Medical Label Printer,2,265.00,530.00,2025-06-17,Shipped
+1035,Jasper County Office,Network Patch Cable,60,4.50,270.00,2025-06-18,Pending
+1036,Keystone Museum,Digital Signage Player,3,410.00,1230.00,2025-06-18,Shipped
+1037,Liberty Training Co.,Wireless Mouse,24,18.00,432.00,2025-06-19,Shipped
+1038,Meridian Shipping,Vehicle Mount Tablet Holder,5,96.00,480.00,2025-06-19,Cancelled
+1039,Northgate Apparel,Handheld Inventory Terminal,2,690.00,1380.00,2025-06-20,Pending
+1040,Orchard Health,Desk Phone Adapter,13,27.50,357.50,2025-06-20,Shipped

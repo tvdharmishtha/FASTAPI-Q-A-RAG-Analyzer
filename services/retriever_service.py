@@ -66,3 +66,13 @@ class RetrieverService:
         except Exception as e:
             logger.error(f"Failed to delete document {document_id}: {e}")
             return False
+
+    def remove_from_vector_db(self, document_id):
+        """Remove a document from the vector database without deleting the file."""
+        try:
+            if document_id not in self.retriever.document_metadata:
+                return False
+            return self.retriever.delete_document(document_id)
+        except Exception as e:
+            logger.error(f"Failed to remove document {document_id} from vector DB: {e}")
+            return False

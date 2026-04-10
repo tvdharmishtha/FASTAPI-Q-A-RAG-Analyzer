@@ -108,6 +108,24 @@ async def delete_document(document_id: str):
         raise HTTPException(status_code=500, detail="Failed to delete document")
 
 
+@router.delete("/files/{document_id}/vector", response_model=dict)
+async def remove_document_from_vector_db(document_id: str):
+    """Remove an uploaded document from the vector database only."""
+    try:
+        success = retriever_service.remove_from_vector_db(document_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Document not found in vector database")
+        return {
+            "status": "success",
+            "message": "Removed file from vector database."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing document {document_id} from vector DB: {e}")
+        raise HTTPException(status_code=500, detail="Failed to remove document from vector database")
+
+
 @router.delete("/delete/{document_id}", response_model=dict)
 async def delete_document_legacy(document_id: str):
     """Backward-compatible delete route."""
