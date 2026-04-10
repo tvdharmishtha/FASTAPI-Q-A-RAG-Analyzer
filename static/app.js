@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const queryInput = document.getElementById('query-input');
     const messagesContainer = document.getElementById('messages');
     const sendBtn = document.getElementById('send-btn');
+    const clearHistoryBtn = document.getElementById('clear-history-btn');
+    const clearCacheBtn = document.getElementById('clear-cache-btn');
 
     let uploadedDocumentsCount = 0;
     
@@ -20,6 +22,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentBotMsgElement = null;
 
     function connectWebSocket() {
+        if (ws && isConnected) {
+            console.log('WebSocket already connected');
+            return;
+        }
+
+        console.log('Attempting to connect WebSocket...');
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/ask`;
         
@@ -42,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
+            console.log('WebSocket message received:', data);
             
             if (data.error) {
                 appendSystemMessage(`Error: ${data.error}`);
@@ -67,12 +76,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (data.done) {
-                // Formatting sources
                 const fullText = (currentBotMsgElement.dataset.rawText || data.answer || '').trim();
                 const isUnknown = fullText.includes("I don't know based on the provided documents") || fullText.includes("No relevant information found");
 
+                appendResponseBadge(currentBotMsgElement, data.cached === true);
                 if (data.sources && data.sources.length > 0 && !isUnknown) {
-                    appendSources(currentBotMsgElement.parentElement, data.sources);
+                    appendSources(currentBotMsgElement, data.sources);
                 }
                 enableInput();
                 currentBotMsgElement = null;
@@ -128,9 +137,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleFiles(files) {
         const formData = new FormData();
-        Array.from(files).forEach(file => {
+        const pendingRows = Array.from(files).map(file => {
             formData.append('files', file);
-            addDocumentToList(file.name, true);
+            return addDocumentToList(file.name, { pending: true });
         });
 
         uploadStatus.classList.remove('hidden');
@@ -145,22 +154,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const results = await response.json();
             
             if (response.ok) {
+                results.forEach((result, index) => {
+                    updateDocumentListItem(
+                        pendingRows[index],
+                        result.filename || files[index].name,
+                        result.document_id,
+                        result.message
+                    );
+                });
                 uploadText.textContent = 'Upload complete!';
                 setTimeout(() => {
                     uploadStatus.classList.add('hidden');
                 }, 3000);
             } else {
+                pendingRows.forEach(removeDocumentListItem);
                 uploadText.textContent = `Error: ${results.detail || 'Upload failed'}`;
                 setTimeout(() => uploadStatus.classList.add('hidden'), 5000);
             }
         } catch (err) {
             console.error('Upload error:', err);
+            pendingRows.forEach(removeDocumentListItem);
             uploadText.textContent = 'Network error during upload.';
             setTimeout(() => uploadStatus.classList.add('hidden'), 5000);
         }
     }
 
-    function addDocumentToList(filename, isNew = false) {
+    function addDocumentToList(filename, options = {}) {
         if (uploadedDocumentsCount === 0) {
             docList.innerHTML = '';
         }
@@ -169,14 +188,115 @@ document.addEventListener('DOMContentLoaded', () => {
         docCount.textContent = uploadedDocumentsCount;
         
         const li = document.createElement('li');
+        li.className = 'doc-item';
+        if (options.pending) {
+            li.classList.add('pending');
+        }
         li.innerHTML = `
             <svg class="doc-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${filename}</span>
+            <span class="doc-name"></span>
+            <span class="doc-status">${options.pending ? 'Uploading...' : ''}</span>
+            <button type="button" class="remove-doc-btn" title="Remove document" aria-label="Remove ${escapeHTML(filename)}" ${options.pending ? 'disabled' : ''}>
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            </button>
         `;
+        li.querySelector('.doc-name').textContent = filename;
         docList.appendChild(li);
+        return li;
     }
 
+    function updateDocumentListItem(li, filename, documentId, statusText = '') {
+        if (!li) return;
+        li.dataset.documentId = documentId;
+        li.classList.remove('pending');
+        li.querySelector('.doc-name').textContent = filename;
+        li.querySelector('.doc-status').textContent = statusText === 'Document already uploaded' ? 'Already uploaded' : '';
+        const removeButton = li.querySelector('.remove-doc-btn');
+        removeButton.disabled = !documentId;
+        removeButton.setAttribute('aria-label', `Remove ${filename}`);
+    }
+
+    function removeDocumentListItem(li) {
+        if (!li || !li.parentElement) return;
+        li.remove();
+        uploadedDocumentsCount = Math.max(0, uploadedDocumentsCount - 1);
+        docCount.textContent = uploadedDocumentsCount;
+        if (uploadedDocumentsCount === 0) {
+            docList.innerHTML = '<li class="empty-state">No documents uploaded yet</li>';
+        }
+    }
+
+    docList.addEventListener('click', async (event) => {
+        const button = event.target.closest('.remove-doc-btn');
+        if (!button) return;
+
+        const li = button.closest('li');
+        const documentId = li?.dataset.documentId;
+        const filename = li?.querySelector('.doc-name')?.textContent || 'this document';
+        if (!documentId) return;
+
+        if (!confirm(`Remove "${filename}"?`)) {
+            return;
+        }
+
+        button.disabled = true;
+        li.classList.add('deleting');
+        li.querySelector('.doc-status').textContent = 'Removing...';
+
+        try {
+            const response = await fetch(`/api/files/${encodeURIComponent(documentId)}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.detail || result.error || 'Delete failed');
+            }
+
+            removeDocumentListItem(li);
+        } catch (err) {
+            console.error('Delete error:', err);
+            li.classList.remove('deleting');
+            li.querySelector('.doc-status').textContent = 'Remove failed';
+            button.disabled = false;
+            alert(`Could not remove ${filename}: ${err.message}`);
+        }
+    });
+
     // --- Chat Logic ---
+
+    clearHistoryBtn.addEventListener('click', () => {
+        currentBotMsgElement = null;
+        messagesContainer.innerHTML = '';
+        enableInput();
+        const readyMessage = appendSystemMessage('Ready for a fresh chat...', 'notice temporary');
+        setTimeout(() => {
+            readyMessage.classList.add('fade-out');
+            readyMessage.addEventListener('animationend', () => readyMessage.remove(), { once: true });
+        }, 2500);
+    });
+
+    clearCacheBtn.addEventListener('click', async () => {
+        clearCacheBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/clear_cache', { method: 'POST' });
+            const data = await response.json();
+
+            if (!response.ok || data.status !== 'success') {
+                throw new Error(data.detail || 'Failed to clear cache.');
+            }
+
+            const count = data.cleared_count || 0;
+            const label = count === 1 ? 'cached response' : 'cached responses';
+            appendSystemMessage(`Cleared ${count} ${label}.`, 'notice');
+        } catch (err) {
+            console.error('Clear cache error:', err);
+            appendSystemMessage('Failed to clear cache.', 'error');
+        } finally {
+            clearCacheBtn.disabled = false;
+        }
+    });
 
     chatForm.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -214,11 +334,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             
             currentBotMsgElement.innerHTML = parseMarkdown(data.answer);
+            appendResponseBadge(currentBotMsgElement, data.cached === true);
             const fullText = (data.answer || '').trim();
             const isUnknown = fullText.includes("I don't know based on the provided documents") || fullText.includes("No relevant information found");
             
             if (data.sources && data.sources.length > 0 && !isUnknown) {
-                appendSources(currentBotMsgElement.parentElement, data.sources);
+                appendSources(currentBotMsgElement, data.sources);
             }
         } catch (err) {
             currentBotMsgElement.innerHTML = `Error: ${err.message}`;
@@ -262,33 +383,65 @@ document.addEventListener('DOMContentLoaded', () => {
         return content;
     }
 
-    function appendSystemMessage(text) {
+    function appendSystemMessage(text, variant = '') {
         const msgDiv = document.createElement('div');
-        msgDiv.className = 'message system';
+        msgDiv.className = `message system ${variant}`.trim();
         msgDiv.innerHTML = `
             <div class="msg-content">${escapeHTML(text)}</div>
         `;
         messagesContainer.appendChild(msgDiv);
         scrollToBottom();
+        return msgDiv;
     }
 
-    function appendSources(messageDiv, sources) {
-        if (!sources || sources.length === 0) return;
-        const srcDiv = document.createElement('div');
-        srcDiv.className = 'sources';
+    function appendSources(contentDiv, sources) {
+        const sourceNames = uniqueSourceNames(sources);
+        if (sourceNames.length === 0) return;
 
-        let html = '<h4>📚 Sources</h4><ul>';
-        // Display up to top 5 sources for better accuracy
-        const topSources = sources.slice(0, 5);
-        topSources.forEach((src, index) => {
-            const snippet = src.text.substring(0, 120).replace(/\n/g, ' ') + '...';
-            const docName = src.doc_name || src.doc_id || 'Unknown Document';
-            const relevance = src.score > 0.8 ? 'High' : src.score > 0.6 ? 'Medium' : 'Low';
-            html += `<li><strong>${docName}</strong><br><span class="source-text">"${escapeHTML(snippet)}"</span><br><small>Relevance: ${relevance} (${src.score.toFixed(3)})</small></li>`;
+        const sourceLine = document.createElement('p');
+        sourceLine.className = 'source-line';
+        sourceLine.innerHTML = `<strong>Sources:</strong> ${sourceNames.map(escapeHTML).join(', ')}`;
+        contentDiv.appendChild(sourceLine);
+    }
+
+    function appendResponseBadge(contentDiv, isCached) {
+        const existingBadge = contentDiv.querySelector('.response-badge');
+        if (existingBadge) {
+            existingBadge.remove();
+        }
+
+        const badge = document.createElement('div');
+        badge.className = `response-badge ${isCached ? 'cache' : 'llm'}`;
+        badge.textContent = isCached ? 'From cache' : 'From LLM';
+        contentDiv.prepend(badge);
+    }
+
+    function uniqueSourceNames(sources) {
+        const names = [];
+        const seen = new Set();
+
+        sources.forEach(source => {
+            const rawName = typeof source === 'string'
+                ? source
+                : source?.filename || source?.doc_name || source?.doc_id || source?.source;
+            if (!rawName) return;
+
+            const name = rawName.split(/[\\/]/).pop().trim();
+            if (!name || looksInternalId(name)) return;
+
+            const key = name.toLowerCase();
+            if (seen.has(key)) return;
+
+            seen.add(key);
+            names.push(name);
         });
-        html += '</ul>';
-        srcDiv.innerHTML = html;
-        messageDiv.appendChild(srcDiv);
+
+        return names;
+    }
+
+    function looksInternalId(value) {
+        const compact = value.replace(/-/g, '');
+        return compact.length >= 16 && /^[a-f0-9]+$/i.test(compact);
     }
 
     function disableInput() {

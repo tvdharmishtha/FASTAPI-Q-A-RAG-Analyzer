@@ -1,5 +1,0 @@
-
-
-Rate Limits
-===========
-The system allows 10 requests per minute per IP address.

@@ -1,7 +1,0 @@
-Another sample document for testing.
-
-This document discusses the benefits of using RAG systems for question answering.
-
-RAG combines retrieval and generation to provide accurate answers from large corpora of text.
-
-It helps in reducing hallucinations in LLM responses by grounding answers in relevant context.

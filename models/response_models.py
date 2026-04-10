@@ -19,14 +19,17 @@ class UploadResponse(BaseModel):
     message: str
     document_id: str
     chunks_count: int
+    filename: Optional[str] = None
 
 
 class QueryResponse(BaseModel):
     query: str
     answer: str
-    sources: List[Source]
+    sources: List[str]
+    cached: bool = False
 
 
 class AskResponse(BaseModel):
     answer: str
-    sources: List[Source]
+    sources: List[str]
+    cached: bool = False

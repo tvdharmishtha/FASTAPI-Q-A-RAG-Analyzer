@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     # File Upload Configuration
     max_file_size: int = 10 * 1024 * 1024  # 10MB
     allowed_extensions: list = [".pdf", ".txt", ".docx"]
+    upload_dir: str = "uploads"
 
     # Logging Configuration
     log_level: str = "INFO"

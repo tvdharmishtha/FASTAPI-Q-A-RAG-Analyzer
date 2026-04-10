@@ -181,6 +181,51 @@ body {
 
 .doc-icon {
     color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.doc-item.pending,
+.doc-item.deleting {
+    opacity: 0.7;
+}
+
+.doc-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.doc-status {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.remove-doc-btn {
+    width: 30px;
+    height: 30px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.remove-doc-btn:hover:not(:disabled) {
+    color: #fecaca;
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+.remove-doc-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .empty-state {
@@ -207,6 +252,10 @@ body {
     background-color: rgba(15, 23, 42, 0.7);
     backdrop-filter: blur(12px);
     z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
 }
 
 .chat-header h2 {
@@ -219,6 +268,37 @@ body {
     color: var(--text-secondary);
     font-size: 0.95rem;
     margin-top: 6px;
+}
+
+.chat-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.header-action-btn {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.3);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 8px 12px;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.header-action-btn:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.14);
+    border-color: rgba(59, 130, 246, 0.55);
+    color: white;
+}
+
+.header-action-btn:disabled {
+    cursor: wait;
+    opacity: 0.55;
 }
 
 .messages {
@@ -240,6 +320,11 @@ body {
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-8px); }
 }
 
 .message.user {
@@ -267,6 +352,35 @@ body {
     background: linear-gradient(135deg, #8b5cf6, #6366f1);
 }
 
+.message.system.notice,
+.message.system.error {
+    align-self: center;
+    max-width: 70%;
+}
+
+.message.system.notice .msg-content,
+.message.system.error .msg-content {
+    border-radius: 8px;
+    font-size: 0.9rem;
+    padding: 12px 16px;
+}
+
+.message.system.notice .msg-content {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.28);
+    color: #d1fae5;
+}
+
+.message.system.temporary.fade-out {
+    animation: fadeOut 0.35s ease forwards;
+}
+
+.message.system.error .msg-content {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    color: #fecaca;
+}
+
 .user .avatar {
     background: linear-gradient(135deg, var(--accent), #2563eb);
     color: white;
@@ -287,6 +401,44 @@ body {
 }
 .msg-content p:last-child {
     margin-bottom: 0;
+}
+
+.response-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    border-radius: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    margin-bottom: 12px;
+    padding: 5px 8px;
+    text-transform: uppercase;
+}
+
+.response-badge.cache {
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(245, 158, 11, 0.38);
+    color: #fcd34d;
+}
+
+.response-badge.llm {
+    background: rgba(59, 130, 246, 0.16);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    color: #bfdbfe;
+}
+
+.source-line {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.source-line strong {
+    color: var(--text-primary);
 }
 
 .user .msg-content {

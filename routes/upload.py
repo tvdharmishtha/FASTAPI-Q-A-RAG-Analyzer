@@ -17,71 +17,98 @@ retriever_service = RetrieverService()
 retriever = retriever_service.retriever
 chunker = DocumentChunker()
 
+PROJECT_ROOT = Path.cwd().resolve()
+UPLOAD_DIR = (PROJECT_ROOT / settings.upload_dir).resolve()
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def safe_upload_path(document_id: str, filename: str) -> Path:
+    safe_name = Path(filename).name.replace("\\", "_").replace("/", "_")
+    upload_path = (UPLOAD_DIR / f"{document_id}_{safe_name}").resolve()
+    if UPLOAD_DIR not in upload_path.parents:
+        raise HTTPException(status_code=400, detail="Invalid upload path")
+    return upload_path
+
 @router.post("/upload", response_model=List[UploadResponse])
 async def upload_documents(files: List[UploadFile] = File(...)):
     """Upload and process multiple documents."""
     responses = []
     for file in files:
+        filename = Path(file.filename or "").name
         # Validate file type
-        if file.filename.split('.')[-1].lower() not in [ext.strip('.') for ext in settings.allowed_extensions]:
-            raise HTTPException(status_code=400, detail=f"Unsupported file type for {file.filename}")
+        if filename.split('.')[-1].lower() not in [ext.strip('.') for ext in settings.allowed_extensions]:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type for {filename}")
 
-        # Save file temporarily
-        temp_path = Path(f"temp_{uuid.uuid4()}_{file.filename}")
+        upload_path = None
         try:
             contents = await file.read()
-            logger.info(f"Received file {file.filename} with size {len(contents)} bytes")
-            with open(temp_path, "wb") as f:
-                f.write(contents)
+            logger.info(f"Received file {filename} with size {len(contents)} bytes")
+            if len(contents) > settings.max_file_size:
+                raise HTTPException(status_code=413, detail=f"File too large: {filename}")
 
+            # Check for duplicate uploads before writing another copy to disk.
             hash_value = hashlib.md5(contents).hexdigest()
-            if hash_value in retriever.uploaded_hashes:
+            if retriever_service.is_duplicate(hash_value):
                 responses.append(UploadResponse(
                     message="Document already uploaded",
-                    document_id=retriever.hash_to_doc_id.get(hash_value, ""),
-                    chunks_count=0
+                    document_id=retriever_service.get_document_id(hash_value) or "",
+                    chunks_count=0,
+                    filename=filename
                 ))
                 continue
 
+            document_id = str(uuid.uuid4())
+            upload_path = safe_upload_path(document_id, filename)
+            with open(upload_path, "wb") as f:
+                f.write(contents)
+
             # Parse file
-            logger.info(f"Parsing file {temp_path}")
-            text = parse_file(str(temp_path))
+            logger.info(f"Parsing file {upload_path}")
+            text = parse_file(str(upload_path))
             if not text:
-                raise HTTPException(status_code=400, detail=f"Failed to parse file {file.filename}")
+                raise HTTPException(status_code=400, detail=f"Failed to parse file {filename}")
             logger.info(f"Parsed text length: {len(text)}")
 
-            # Generate document ID
-            document_id = str(uuid.uuid4())
-            logger.info(f"Generated document ID: {document_id}")
-
-            retriever.uploaded_hashes.add(hash_value)
-            retriever.hash_to_doc_id[hash_value] = document_id
-
-            # Chunk the document
-            logger.info(f"Chunking text for document {document_id}")
-            chunks = chunker.chunk_text(text, document_id, file.filename)
-            logger.info(f"Created {len(chunks)} chunks")
-
-            # Add chunks to retriever
-            logger.info(f"Adding chunks to retriever")
-            retriever.add_chunks(chunks)
-
-            logger.info(f"Document {file.filename} uploaded and processed with ID {document_id}")
+            # Chunk and store in vector database
+            logger.info(f"Chunking and storing file {filename}")
+            chunks = chunker.chunk_text(text, document_id=document_id, filename=filename)
+            retriever_service.store_document(chunks, hash_value, filename, upload_path, document_id)
 
             responses.append(UploadResponse(
-                message="Document uploaded and processed successfully",
+                message="Document uploaded successfully",
                 document_id=document_id,
-                chunks_count=len(chunks)
+                chunks_count=len(chunks),
+                filename=filename
             ))
 
         except Exception as e:
-            logger.error(f"Error uploading document {file.filename}: {e}")
+            if upload_path and upload_path.exists():
+                upload_path.unlink()
+            logger.error(f"Error uploading document {filename}: {e}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
-            raise HTTPException(status_code=500, detail=f"Internal server error for {file.filename}: {str(e)}")
-        finally:
-            # Clean up temp file
-            if temp_path.exists():
-                temp_path.unlink()
+            if isinstance(e, HTTPException):
+                raise e
+            raise HTTPException(status_code=500, detail=f"Internal server error for {filename}: {str(e)}")
 
     return responses
+
+@router.delete("/files/{document_id}", response_model=dict)
+async def delete_document(document_id: str):
+    """Delete an uploaded document."""
+    try:
+        success = retriever_service.delete_document(document_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Document not found")
+        return {"status": "success", "message": "Document deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting document {document_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete document")
+
+
+@router.delete("/delete/{document_id}", response_model=dict)
+async def delete_document_legacy(document_id: str):
+    """Backward-compatible delete route."""
+    return await delete_document(document_id)

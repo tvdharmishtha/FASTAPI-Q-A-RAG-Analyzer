@@ -18,6 +18,18 @@ if os.path.exists(CACHE_FILE):
         logger.error(f"Failed to load LLM cache: {e}")
 
 
+def clear_llm_cache() -> int:
+    """Clear the LLM response cache from memory and disk."""
+    entries_removed = len(LLM_CACHE)
+    LLM_CACHE.clear()
+    try:
+        if os.path.exists(CACHE_FILE):
+            os.remove(CACHE_FILE)
+    except Exception as e:
+        logger.error(f"Failed to remove LLM cache file: {e}")
+    return entries_removed
+
+
 class LLMService:
     def __init__(self):
         self.api_key = settings.groq_api_key
