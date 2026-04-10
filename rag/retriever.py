@@ -76,7 +76,8 @@ class Retriever:
             return []
 
         query_vector = np.array([query_embedding]).astype('float32')
-        scores, indices = self.index.search(query_vector, min(top_k * 3, self.index.ntotal))
+        search_k = self.index.ntotal if doc_ids else min(top_k * 3, self.index.ntotal)
+        scores, indices = self.index.search(query_vector, search_k)
         
         results = []
         for score, idx in zip(scores[0], indices[0]):

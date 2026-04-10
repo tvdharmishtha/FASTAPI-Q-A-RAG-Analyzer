@@ -184,6 +184,43 @@ body {
     flex-shrink: 0;
 }
 
+.doc-select {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1px solid rgba(148, 163, 184, 0.6);
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.6);
+    cursor: pointer;
+    display: inline-grid;
+    flex-shrink: 0;
+    place-content: center;
+}
+
+.doc-select::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    background: var(--accent);
+    transform: scale(0);
+    transition: transform 0.12s ease;
+}
+
+.doc-select:checked {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.16);
+}
+
+.doc-select:checked::before {
+    transform: scale(1);
+}
+
+.doc-select:disabled {
+    cursor: wait;
+    opacity: 0.5;
+}
+
 .doc-item.pending,
 .doc-item.deleting {
     opacity: 0.7;

@@ -193,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
             li.classList.add('pending');
         }
         li.innerHTML = `
+            <input type="checkbox" class="doc-select" title="Use this document for answers" aria-label="Use ${escapeHTML(filename)} for answers" ${options.pending ? 'disabled' : 'checked'}>
             <svg class="doc-icon" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
             <span class="doc-name"></span>
             <span class="doc-status">${options.pending ? 'Uploading...' : ''}</span>
@@ -211,6 +212,10 @@ document.addEventListener('DOMContentLoaded', () => {
         li.classList.remove('pending');
         li.querySelector('.doc-name').textContent = filename;
         li.querySelector('.doc-status').textContent = statusText === 'Document already uploaded' ? 'Already uploaded' : '';
+        const checkbox = li.querySelector('.doc-select');
+        checkbox.disabled = !documentId;
+        checkbox.checked = Boolean(documentId);
+        checkbox.setAttribute('aria-label', `Use ${filename} for answers`);
         const removeButton = li.querySelector('.remove-doc-btn');
         removeButton.disabled = !documentId;
         removeButton.setAttribute('aria-label', `Remove ${filename}`);
@@ -263,6 +268,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function getSelectedDocumentIds() {
+        return Array.from(docList.querySelectorAll('.doc-item'))
+            .filter(item => item.querySelector('.doc-select')?.checked)
+            .map(item => item.dataset.documentId)
+            .filter(Boolean);
+    }
+
     // --- Chat Logic ---
 
     clearHistoryBtn.addEventListener('click', () => {
@@ -303,6 +315,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = queryInput.value.trim();
         if (!query) return;
 
+        const selectedDocIds = getSelectedDocumentIds();
+        if (uploadedDocumentsCount > 0 && selectedDocIds.length === 0) {
+            appendSystemMessage('Select at least one document to ask from.', 'error');
+            return;
+        }
+
         appendUserMessage(query);
         queryInput.value = '';
         disableInput();
@@ -312,16 +330,16 @@ document.addEventListener('DOMContentLoaded', () => {
             currentBotMsgElement.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
             
             ws.send(JSON.stringify({
-                question: query
-                // doc_ids: [] optional payload
+                question: query,
+                doc_ids: selectedDocIds.length ? selectedDocIds : null
             }));
         } else {
             // Fallback to fetch
-            fetchAnswer(query);
+            fetchAnswer(query, selectedDocIds);
         }
     });
 
-    async function fetchAnswer(query) {
+    async function fetchAnswer(query, selectedDocIds = []) {
         currentBotMsgElement = createBotMessage();
         currentBotMsgElement.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
         
@@ -329,7 +347,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/ask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question: query })
+                body: JSON.stringify({
+                    question: query,
+                    doc_ids: selectedDocIds.length ? selectedDocIds : null
+                })
             });
             const data = await response.json();
             

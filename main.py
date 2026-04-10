@@ -32,13 +32,26 @@ retriever_service = RetrieverService()
 retriever = retriever_service.retriever
 
 
-def find_cached_answer(question: str):
-    return next((entry for entry in cache_storage if entry["question"] == question), None)
+def normalize_doc_ids(doc_ids: list[str] | None) -> list[str]:
+    return sorted(doc_ids or [])
 
 
-def store_cached_answer(question: str, answer: str, sources: list[str]):
+def find_cached_answer(question: str, doc_ids: list[str] | None = None):
+    normalized_doc_ids = normalize_doc_ids(doc_ids)
+    return next(
+        (
+            entry for entry in cache_storage
+            if entry["question"] == question
+            and entry.get("doc_ids", []) == normalized_doc_ids
+        ),
+        None
+    )
+
+
+def store_cached_answer(question: str, answer: str, sources: list[str], doc_ids: list[str] | None = None):
     cache_storage.append({
         "question": question,
+        "doc_ids": normalize_doc_ids(doc_ids),
         "answer": answer,
         "sources": sources
     })
@@ -98,7 +111,7 @@ async def ask_question(request: Request):
     ask_request = AskRequest(**body)
 
     # Check cache first
-    cached_response = find_cached_answer(ask_request.question)
+    cached_response = find_cached_answer(ask_request.question, ask_request.doc_ids)
     if cached_response:
         logger.info("Cache hit for query")
         return AskResponse(
@@ -141,7 +154,7 @@ async def ask_question(request: Request):
     sources = deduplicate_document_sources(retrieved_chunks)
 
     # Store the response in cache
-    store_cached_answer(ask_request.question, answer, sources)
+    store_cached_answer(ask_request.question, answer, sources, ask_request.doc_ids)
 
     logger.info(f"Processed ask: {ask_request.question}")
 
@@ -185,7 +198,7 @@ async def websocket_ask(websocket: WebSocket):
                 await websocket.send_json({"error": "Question is required"})
                 continue
 
-            cached_response = find_cached_answer(question)
+            cached_response = find_cached_answer(question, doc_ids)
             if cached_response:
                 logger.info("WebSocket cache hit for query")
                 await websocket.send_json({
@@ -225,7 +238,7 @@ async def websocket_ask(websocket: WebSocket):
                     await websocket.send_text(json.dumps({"chunk": display_text}))
 
             sources = deduplicate_document_sources(retrieved_chunks)
-            store_cached_answer(question, "".join(answer_parts), sources)
+            store_cached_answer(question, "".join(answer_parts), sources, doc_ids)
             logger.debug(f"Sending sources to {client_id}")
             await websocket.send_json({"sources": sources, "cached": llm_cache_hit, "done": True})
 
